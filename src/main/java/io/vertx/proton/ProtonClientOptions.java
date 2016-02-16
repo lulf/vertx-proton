@@ -1,17 +1,22 @@
 package io.vertx.proton;
 
+import io.vertx.codegen.annotations.DataObject;
+import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.NetClientOptions;
 
+import java.util.List;
+
+@DataObject
 public class ProtonClientOptions extends NetClientOptions {
 
-    private String[] allowedSaslMechanisms = null;
+    private List<String> allowedSaslMechanisms = null;
 
     /**
      * Get the mechanisms the client is currently restricted to use.
      *
      * @return the mechanisms, or null if there is no restriction in place
      */
-    public String[] getAllowedSaslMechanisms() {
+    public List<String> getAllowedSaslMechanisms() {
         return allowedSaslMechanisms;
     }
 
@@ -22,8 +27,8 @@ public class ProtonClientOptions extends NetClientOptions {
      *
      * @param mechanisms the restricted mechanism(s) or null to clear the restriction.
      */
-    public void setAllowedSaslMechanisms(final String... saslMechanisms) {
-        if(saslMechanisms == null || saslMechanisms.length == 0) {
+    public void setAllowedSaslMechanisms(final List<String> saslMechanisms) {
+        if(saslMechanisms == null || saslMechanisms.size() == 0) {
             this.allowedSaslMechanisms = null;
         } else {
             this.allowedSaslMechanisms = saslMechanisms;
@@ -33,4 +38,16 @@ public class ProtonClientOptions extends NetClientOptions {
     //TODO: Use a delegate? Override methods to change return type?
     //TODO: Config for AMQP levle heartbeating /idle-timeout? Have
     //      that on the Connection instead?
+
+
+    public ProtonClientOptions() {
+    }
+
+    public ProtonClientOptions(ProtonClientOptions other) {
+        super(other);
+    }
+
+    public ProtonClientOptions(JsonObject json) {
+        super(json);
+    }
 }

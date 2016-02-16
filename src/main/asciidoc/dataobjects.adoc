@@ -1,0 +1,75 @@
+= Cheatsheets
+
+[[ProtonServerOptions]]
+== ProtonServerOptions
+
+
+[cols=">25%,^25%,50%"]
+[frame="topbot"]
+|===
+^|Name | Type ^| Description
+|[[acceptBacklog]]`acceptBacklog`|`Number (int)`|-
+|[[clientAuth]]`clientAuth`|`link:enums.html#ClientAuth[ClientAuth]`|-
+|[[clientAuthRequired]]`clientAuthRequired`|`Boolean`|-
+|[[crlPaths]]`crlPaths`|`Array of String`|-
+|[[crlValues]]`crlValues`|`Array of Buffer`|-
+|[[enabledCipherSuites]]`enabledCipherSuites`|`Array of String`|-
+|[[host]]`host`|`String`|-
+|[[idleTimeout]]`idleTimeout`|`Number (int)`|-
+|[[keyStoreOptions]]`keyStoreOptions`|`link:dataobjects.html#JksOptions[JksOptions]`|-
+|[[pemKeyCertOptions]]`pemKeyCertOptions`|`link:dataobjects.html#PemKeyCertOptions[PemKeyCertOptions]`|-
+|[[pemTrustOptions]]`pemTrustOptions`|`link:dataobjects.html#PemTrustOptions[PemTrustOptions]`|-
+|[[pfxKeyCertOptions]]`pfxKeyCertOptions`|`link:dataobjects.html#PfxOptions[PfxOptions]`|-
+|[[pfxTrustOptions]]`pfxTrustOptions`|`link:dataobjects.html#PfxOptions[PfxOptions]`|-
+|[[port]]`port`|`Number (int)`|-
+|[[receiveBufferSize]]`receiveBufferSize`|`Number (int)`|-
+|[[reuseAddress]]`reuseAddress`|`Boolean`|-
+|[[sendBufferSize]]`sendBufferSize`|`Number (int)`|-
+|[[soLinger]]`soLinger`|`Number (int)`|-
+|[[ssl]]`ssl`|`Boolean`|-
+|[[tcpKeepAlive]]`tcpKeepAlive`|`Boolean`|-
+|[[tcpNoDelay]]`tcpNoDelay`|`Boolean`|-
+|[[trafficClass]]`trafficClass`|`Number (int)`|-
+|[[trustStoreOptions]]`trustStoreOptions`|`link:dataobjects.html#JksOptions[JksOptions]`|-
+|[[usePooledBuffers]]`usePooledBuffers`|`Boolean`|-
+|===
+
+[[ProtonClientOptions]]
+== ProtonClientOptions
+
+
+[cols=">25%,^25%,50%"]
+[frame="topbot"]
+|===
+^|Name | Type ^| Description
+|[[allowedSaslMechanisms]]`allowedSaslMechanisms`|`Array of String`|
++++
+Set a restricted mechanism(s) that the client may use during the
+ SASL negotiation. If null or empty argument is given, no restriction
+ is applied and any supported mechanism can be used.
++++
+|[[connectTimeout]]`connectTimeout`|`Number (int)`|-
+|[[crlPaths]]`crlPaths`|`Array of String`|-
+|[[crlValues]]`crlValues`|`Array of Buffer`|-
+|[[enabledCipherSuites]]`enabledCipherSuites`|`Array of String`|-
+|[[idleTimeout]]`idleTimeout`|`Number (int)`|-
+|[[keyStoreOptions]]`keyStoreOptions`|`link:dataobjects.html#JksOptions[JksOptions]`|-
+|[[pemKeyCertOptions]]`pemKeyCertOptions`|`link:dataobjects.html#PemKeyCertOptions[PemKeyCertOptions]`|-
+|[[pemTrustOptions]]`pemTrustOptions`|`link:dataobjects.html#PemTrustOptions[PemTrustOptions]`|-
+|[[pfxKeyCertOptions]]`pfxKeyCertOptions`|`link:dataobjects.html#PfxOptions[PfxOptions]`|-
+|[[pfxTrustOptions]]`pfxTrustOptions`|`link:dataobjects.html#PfxOptions[PfxOptions]`|-
+|[[receiveBufferSize]]`receiveBufferSize`|`Number (int)`|-
+|[[reconnectAttempts]]`reconnectAttempts`|`Number (int)`|-
+|[[reconnectInterval]]`reconnectInterval`|`Number (long)`|-
+|[[reuseAddress]]`reuseAddress`|`Boolean`|-
+|[[sendBufferSize]]`sendBufferSize`|`Number (int)`|-
+|[[soLinger]]`soLinger`|`Number (int)`|-
+|[[ssl]]`ssl`|`Boolean`|-
+|[[tcpKeepAlive]]`tcpKeepAlive`|`Boolean`|-
+|[[tcpNoDelay]]`tcpNoDelay`|`Boolean`|-
+|[[trafficClass]]`trafficClass`|`Number (int)`|-
+|[[trustAll]]`trustAll`|`Boolean`|-
+|[[trustStoreOptions]]`trustStoreOptions`|`link:dataobjects.html#JksOptions[JksOptions]`|-
+|[[usePooledBuffers]]`usePooledBuffers`|`Boolean`|-
+|===
+

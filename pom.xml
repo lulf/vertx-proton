@@ -17,6 +17,7 @@
         <stack.version>3.2.1</stack.version>
         <activemq.version>5.13.0</activemq.version>
         <proton.version>0.11.1</proton.version>
+        <asciidoc.dir>${project.basedir}/src/main/asciidoc</asciidoc.dir>
     </properties>
 
     <dependencyManagement>
@@ -40,6 +41,12 @@
             <groupId>org.apache.qpid</groupId>
             <artifactId>proton-j</artifactId>
             <version>${proton.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-codegen</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
@@ -77,5 +84,34 @@
         </dependency>
 
     </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <executions>
+                        <execution>
+                            <id>default-compile</id>
+                            <configuration>
+                                <annotationProcessors>
+                                    <annotationProcessor>io.vertx.codegen.CodeGenProcessor</annotationProcessor>
+                                </annotationProcessors>
+                                <compilerArgs>
+                                    <arg>-Adocgen.output=${asciidoc.dir}/java</arg>
+                                    <arg>-AoutputDirectory=${project.basedir}/src/main</arg>
+                                    <arg>-Amaven.groupId=${project.groupId}</arg>
+                                    <arg>-Amaven.artifactId=${project.artifactId}</arg>
+                                    <arg>-Amaven.version=${project.version}</arg>
+                                </compilerArgs>
+                                <generatedSourcesDirectory>${generated.dir}</generatedSourcesDirectory>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 
 </project>

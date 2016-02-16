@@ -1,0 +1,14 @@
+= Enums
+
+[[ProtonQoS]]
+== ProtonQoS
+
+
+[cols=">25%,75%"]
+[frame="topbot"]
+|===
+^|Name | Description
+|[[AT_MOST_ONCE]]`AT_MOST_ONCE`|-
+|[[AT_LEAST_ONCE]]`AT_LEAST_ONCE`|-
+|===
+

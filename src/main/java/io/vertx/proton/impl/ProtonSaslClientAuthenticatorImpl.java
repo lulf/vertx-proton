@@ -1,6 +1,7 @@
 package io.vertx.proton.impl;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import javax.security.sasl.SaslException;
@@ -48,7 +49,7 @@ public class ProtonSaslClientAuthenticatorImpl implements ProtonSaslAuthenticato
      * @param connection
      *        The connection the SASL process is for
      */
-    public ProtonSaslClientAuthenticatorImpl(String username, String password, String[] allowedSaslMechanisms,
+    public ProtonSaslClientAuthenticatorImpl(String username, String password, List<String> allowedSaslMechanisms,
                                              NetSocket socket, Handler<AsyncResult<ProtonConnection>> handler, ProtonConnectionImpl connection) {
         this.handler = handler;
         this.socket = socket;
@@ -57,8 +58,8 @@ public class ProtonSaslClientAuthenticatorImpl implements ProtonSaslAuthenticato
         this.password = password;
         if(allowedSaslMechanisms != null) {
             Set<String> mechs = new HashSet<String>();
-            for(int i = 0; i < allowedSaslMechanisms.length; i++) {
-                String mech = allowedSaslMechanisms[i];
+            for(int i = 0; i < allowedSaslMechanisms.size(); i++) {
+                String mech = allowedSaslMechanisms.get(i);
                 if(!mech.trim().isEmpty()) {
                     mechs.add(mech);
                 }
