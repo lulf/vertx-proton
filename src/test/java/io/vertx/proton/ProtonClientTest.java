@@ -289,7 +289,7 @@ public class ProtonClientTest extends MockServerTestBase {
     });
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 20000)
   public void testDelayedInitialCreditWithPrefetchDisabled(TestContext context) {
     Async async = context.async();
     connect(context, connection -> {
@@ -406,6 +406,106 @@ public class ProtonClientTest extends MockServerTestBase {
       }).setPrefetch(0) // Turn off prefetch and related automatic credit handling
           .flow(4) // Explicitly grant initial credit of 4. Handler will grant more later.
           .open();
+    });
+  }
+
+  //TODO: change to use specific non-MockServer impl that only sends messages after the flow arrives.
+  //      One test that auto-drains on server, one that doesn't?
+  @Test(timeout = 20000)
+  public void testDrainWithSomeCreditsUsed(TestContext context) {
+    Async async = context.async();
+    AtomicInteger counter = new AtomicInteger(0);
+    AtomicBoolean drainComplete = new AtomicBoolean();
+
+    connect(context, connection -> {
+      connection.open();
+
+      // Create receiver with prefetch disabled, asking the mock server for 2 messages
+      ProtonReceiver receiver = connection.createReceiver(MockServer.Addresses.two_messages.toString());
+      receiver.handler((d, m) -> {
+        int count = counter.incrementAndGet();
+        switch (count) {
+          case 1: //fall through
+          case 2:
+            validateMessage(context, count, String.valueOf(count), m);
+            context.assertFalse(drainComplete.get(), "Drain should not yet be completed!");
+            break;
+          default:
+            context.fail("Should only get 2 messages");
+            break;
+        }
+      }).setPrefetch(0) // Turn off automatic prefetch / credit handling
+          .open();
+
+      // Explicitly drain, granting 5 credits first, so not all are used (we only expect 2 messages).
+      receiver.flow(5);
+      receiver.drain(v -> {
+        context.assertEquals(2, counter.get(), "Drain should not yet be completed! Unexpected message count");
+        drainComplete.set(true);
+        async.complete();
+        connection.disconnect();
+      });
+    });
+  }
+
+  //TODO: change to use specific non-MockServer impl that only sends messages after the flow arrives.
+  @Test(timeout = 20000)
+  public void testDrainWithAllCreditsUsed(TestContext context) {
+    Async async = context.async();
+    AtomicInteger counter = new AtomicInteger(0);
+    AtomicBoolean drainComplete = new AtomicBoolean();
+
+    connect(context, connection -> {
+      connection.open();
+
+      // Create receiver with prefetch disabled, asking the mock server for 5 messages
+      ProtonReceiver receiver = connection.createReceiver(MockServer.Addresses.five_messages.toString());
+      receiver.handler((d, m) -> {
+        int count = counter.incrementAndGet();
+        switch (count) {
+          case 1: //fall through
+          case 2: //fall through
+          case 3: //fall through
+          case 4: //fall through
+          case 5:
+            validateMessage(context, count, String.valueOf(count), m);
+            context.assertFalse(drainComplete.get(), "Drain should not yet be completed!");
+            break;
+          default:
+            context.fail("Should only get 5 messages");
+            break;
+        }
+      }).setPrefetch(0) // Turn off automatic prefetch / credit handling
+          .open();
+
+      // Explicitly drain, grant 5 credits, expect all to be used so drain completes without 'drain response' flow.
+      receiver.flow(5);
+      receiver.drain(v -> {
+        context.assertEquals(5, counter.get(), "Drain should not yet be completed! Unexpected message count");
+        drainComplete.set(true);
+        async.complete();
+        connection.disconnect();
+      });
+    });
+  }
+
+  @Test(timeout = 20000)
+  public void testDrainWithNoCredit(TestContext context) {
+    Async async = context.async();
+
+    connect(context, connection -> {
+      connection.open();
+
+      // Create receiver with prefetch disabled, against address that will send no messages
+      ProtonReceiver receiver = connection.createReceiver(MockServer.Addresses.drop.toString());
+      receiver.setPrefetch(0) // Turn off automatic prefetch / credit handling
+      .open();
+
+      // Explicitly drain, granting no credit first
+      receiver.drain(v -> {
+        async.complete();
+        connection.disconnect();
+      });
     });
   }
 

@@ -17,6 +17,8 @@ package io.vertx.proton;
 
 import java.lang.IllegalStateException;
 
+import io.vertx.core.Handler;
+
 /**
  * @author <a href="http://tfox.org">Tim Fox</a>
  */
@@ -81,7 +83,24 @@ public interface ProtonReceiver extends ProtonLink<ProtonReceiver> {
    *          the credits to flow
    * @return the receiver
    * @throws IllegalStateException
-   *           if prefetch is non-zero.
+   *           if prefetch is non-zero, or an existing drain operation is not yet complete
    */
   ProtonReceiver flow(int credits) throws IllegalStateException;
+
+  /**
+   * TODO: timeout support.
+   * Initiates a drain of link credit from the remote sender.
+   *
+   * Only available for use when {@link #setPrefetch(int)} has been used to disable automatic prefetch credit handling.
+   *
+   * @param completionHandler
+   *          handler called when credit hits 0 due to messages arriving, or a 'drain response' flow
+   *
+   * @return the receiver
+   * @throws IllegalStateException
+   *           if prefetch is non-zero, or an existing drain operation is not yet complete
+   * @throws IllegalArgumentException
+   *           if no completion handler is given
+   */
+  ProtonReceiver drain(Handler<Void> completionHandler) throws IllegalStateException, IllegalArgumentException;
 }
