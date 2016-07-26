@@ -17,6 +17,7 @@ package io.vertx.proton;
 
 import java.lang.IllegalStateException;
 
+import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 
 /**
@@ -88,11 +89,18 @@ public interface ProtonReceiver extends ProtonLink<ProtonReceiver> {
   ProtonReceiver flow(int credits) throws IllegalStateException;
 
   /**
-   * TODO: timeout support.
-   * Initiates a drain of link credit from the remote sender.
+   * Initiates a 'drain' of link credit from the remote sender.
    *
-   * Only available for use when {@link #setPrefetch(int)} has been used to disable automatic prefetch credit handling.
+   * The timeout parameter allows scheduling a delay (in milliseconds) after which the handler should be fired with
+   * a failure result if the attempt has not yet completed successfully, with a value of 0 equivalent to no-timeout.
    *
+   * If a drain attempt fails due to timeout, it is no longer possible to reason about the 'drain' state of the receiver
+   * and thus any further attempts to drain it should be avoided. The receiver should typically be closed in such cases.
+   *
+   * Only available for use when {@link #setPrefetch(int)} has been used to disable automatic credit handling.
+   *
+   * @param timeout
+   *          the delay in milliseconds before which the drain attempt should be considered failed, or 0 for no timeout.
    * @param completionHandler
    *          handler called when credit hits 0 due to messages arriving, or a 'drain response' flow
    *
@@ -102,5 +110,5 @@ public interface ProtonReceiver extends ProtonLink<ProtonReceiver> {
    * @throws IllegalArgumentException
    *           if no completion handler is given
    */
-  ProtonReceiver drain(Handler<Void> completionHandler) throws IllegalStateException, IllegalArgumentException;
+  ProtonReceiver drain(long timeout, Handler<AsyncResult<Void>> completionHandler) throws IllegalStateException, IllegalArgumentException;
 }

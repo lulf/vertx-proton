@@ -30,6 +30,7 @@ import org.apache.qpid.proton.Proton;
 import org.apache.qpid.proton.amqp.Symbol;
 import org.apache.qpid.proton.amqp.messaging.AmqpValue;
 import org.apache.qpid.proton.amqp.messaging.Section;
+import org.apache.qpid.proton.amqp.messaging.Source;
 import org.apache.qpid.proton.amqp.transport.AmqpError;
 import org.apache.qpid.proton.amqp.transport.ErrorCondition;
 import org.apache.qpid.proton.amqp.transport.Target;
@@ -40,6 +41,7 @@ import org.junit.runner.RunWith;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -409,19 +411,38 @@ public class ProtonClientTest extends MockServerTestBase {
     });
   }
 
-  //TODO: change to use specific non-MockServer impl that only sends messages after the flow arrives.
-  //      One test that auto-drains on server, one that doesn't?
   @Test(timeout = 20000)
-  public void testDrainWithSomeCreditsUsed(TestContext context) {
+  public void testDrainWithSomeCreditsUsed(TestContext context) throws Exception {
+    doDrainWithSomeCreditUsedTestImpl(context, false);
+  }
+
+  @Test(timeout = 20000)
+  public void testDrainWithSomeCreditsUsedSenderAutoDrained(TestContext context) throws Exception {
+    doDrainWithSomeCreditUsedTestImpl(context, true);
+  }
+
+  private void doDrainWithSomeCreditUsedTestImpl(TestContext context, boolean autoDrainedSender) throws Exception {
+    server.close();
+
+    int credits = 5;
+    int messages = 2;
+
+    // Set up server that will send 2 messages, and either automatically or explicitly set the link drained after.
+    MockServer protonServer = doDrainTestServerSetup(context, autoDrainedSender, !autoDrainedSender, messages);
+
     Async async = context.async();
     AtomicInteger counter = new AtomicInteger(0);
     AtomicBoolean drainComplete = new AtomicBoolean();
 
-    connect(context, connection -> {
+    ProtonClient client = ProtonClient.create(vertx);
+    client.connect("localhost", protonServer.actualPort(), res -> {
+      context.assertTrue(res.succeeded());
+
+      ProtonConnection connection = res.result();
       connection.open();
 
-      // Create receiver with prefetch disabled, asking the mock server for 2 messages
-      ProtonReceiver receiver = connection.createReceiver(MockServer.Addresses.two_messages.toString());
+      // Create receiver [with prefetch disabled] against the mock server sending 2 messages
+      ProtonReceiver receiver = connection.createReceiver("some-address");
       receiver.handler((d, m) -> {
         int count = counter.incrementAndGet();
         switch (count) {
@@ -438,8 +459,9 @@ public class ProtonClientTest extends MockServerTestBase {
           .open();
 
       // Explicitly drain, granting 5 credits first, so not all are used (we only expect 2 messages).
-      receiver.flow(5);
-      receiver.drain(v -> {
+      receiver.flow(credits);
+      receiver.drain(10000, result -> {
+        context.assertTrue(result.succeeded(), "Drain should have succeeded");
         context.assertEquals(2, counter.get(), "Drain should not yet be completed! Unexpected message count");
         drainComplete.set(true);
         async.complete();
@@ -448,18 +470,29 @@ public class ProtonClientTest extends MockServerTestBase {
     });
   }
 
-  //TODO: change to use specific non-MockServer impl that only sends messages after the flow arrives.
   @Test(timeout = 20000)
-  public void testDrainWithAllCreditsUsed(TestContext context) {
+  public void testDrainWithAllCreditsUsed(TestContext context) throws Exception {
+    server.close();
+
+    int credits = 5;
+    int messages = 5;
+
+    // Set up server that will send messages to use all the credit
+    MockServer protonServer = doDrainTestServerSetup(context, true, false, messages);
+
     Async async = context.async();
     AtomicInteger counter = new AtomicInteger(0);
     AtomicBoolean drainComplete = new AtomicBoolean();
 
-    connect(context, connection -> {
+    ProtonClient client = ProtonClient.create(vertx);
+    client.connect("localhost", protonServer.actualPort(), res -> {
+      context.assertTrue(res.succeeded());
+
+      ProtonConnection connection = res.result();
       connection.open();
 
-      // Create receiver with prefetch disabled, asking the mock server for 5 messages
-      ProtonReceiver receiver = connection.createReceiver(MockServer.Addresses.five_messages.toString());
+      // Create receiver [with prefetch disabled] against the mock server sending 5 messages
+      ProtonReceiver receiver = connection.createReceiver("some-address");
       receiver.handler((d, m) -> {
         int count = counter.incrementAndGet();
         switch (count) {
@@ -479,9 +512,10 @@ public class ProtonClientTest extends MockServerTestBase {
           .open();
 
       // Explicitly drain, grant 5 credits, expect all to be used so drain completes without 'drain response' flow.
-      receiver.flow(5);
-      receiver.drain(v -> {
-        context.assertEquals(5, counter.get(), "Drain should not yet be completed! Unexpected message count");
+      receiver.flow(credits);
+      receiver.drain(10000, result -> {
+        context.assertTrue(result.succeeded(), "Drain should have succeeded");
+        context.assertEquals(credits, counter.get(), "Drain should not yet be completed! Unexpected message count");
         drainComplete.set(true);
         async.complete();
         connection.disconnect();
@@ -496,17 +530,106 @@ public class ProtonClientTest extends MockServerTestBase {
     connect(context, connection -> {
       connection.open();
 
-      // Create receiver with prefetch disabled, against address that will send no messages
-      ProtonReceiver receiver = connection.createReceiver(MockServer.Addresses.drop.toString());
+      // Create receiver [with prefetch disabled] against address that will send no messages
+      ProtonReceiver receiver = connection.createReceiver(MockServer.Addresses.no_messages.toString());
       receiver.setPrefetch(0) // Turn off automatic prefetch / credit handling
       .open();
 
-      // Explicitly drain, granting no credit first
-      receiver.drain(v -> {
+      // Explicitly drain, granting no credit first, should no-op
+      receiver.drain(0, result -> {
+        context.assertTrue(result.succeeded(), "Drain should have succeeded");
         async.complete();
         connection.disconnect();
       });
     });
+  }
+
+  @Test(timeout = 20000)
+  public void testDrainTimeout(TestContext context) throws Exception {
+    server.close();
+
+    long timeout = 1000;
+
+    // Set up server that will send no messages, and won't either automatically or explicitly set the link drained
+    MockServer protonServer = doDrainTestServerSetup(context, false, false, 0);
+    Async async = context.async();
+
+    ProtonClient client = ProtonClient.create(vertx);
+    client.connect("localhost", protonServer.actualPort(), res -> {
+      context.assertTrue(res.succeeded());
+
+      ProtonConnection connection = res.result();
+      connection.open();
+
+      // Create receiver [with prefetch disabled] against our server that will send no messages
+      ProtonReceiver receiver = connection.createReceiver("some-address");
+      receiver.setPrefetch(0) // Turn off automatic prefetch / credit handling
+      .open();
+
+      // Explicitly drain, granting credit first, expect to fail after the timeout
+      receiver.flow(1);
+      long start = System.nanoTime();
+
+      receiver.drain(timeout, result -> {
+        long elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+        context.assertTrue(result.failed(), "Drain should have failed due to timeout");
+        context.assertTrue(elapsed >= timeout , "Timeout fired earlier than expected: " + elapsed);
+        async.complete();
+        connection.disconnect();
+      });
+    });
+  }
+
+  private MockServer doDrainTestServerSetup(TestContext context, boolean autoDrained, boolean explicitDrained,
+                                            int messageCount) throws Exception {
+    MockServer server = new MockServer(vertx, serverConnection -> {
+      // Expect a connection
+      serverConnection.openHandler(serverSender -> {
+        LOG.trace("Server connection open");
+        // Add a close handler
+        serverConnection.closeHandler(x -> {
+          serverConnection.close();
+        });
+
+        serverConnection.open();
+      });
+
+      // Expect a session to open, when the receiver is created
+      serverConnection.sessionOpenHandler(serverSession -> {
+        LOG.trace("Server session open");
+        serverSession.open();
+      });
+
+      // Expect a sender link open for the client receiver
+      serverConnection.senderOpenHandler(serverSender -> {
+        if(!autoDrained) {
+          serverSender.setAutoDrained(false);
+        }
+
+        LOG.trace("Server sender open");
+        Source remoteSource = (Source) serverSender.getRemoteSource();
+        context.assertNotNull(remoteSource, "source should not be null");
+        // Naive test-only handling
+        serverSender.setSource(remoteSource.copy());
+
+        serverSender.open();
+
+        serverSender.sendQueueDrainHandler(s -> {
+          // When the link is drained, send messages and set drained as directed
+          if (s.getDrain()){
+            for(int i = 1; i <= messageCount; i++){
+              serverSender.send(message(String.valueOf(i)));
+            }
+
+            if(explicitDrained) {
+              serverSender.drained();
+            }
+          }
+        });
+      });
+    });
+
+    return server;
   }
 
   @Test(timeout = 20000)

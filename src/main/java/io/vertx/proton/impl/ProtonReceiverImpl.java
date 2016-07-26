@@ -15,7 +15,10 @@
 */
 package io.vertx.proton.impl;
 
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.Vertx;
 import io.vertx.proton.ProtonMessageHandler;
 import io.vertx.proton.ProtonReceiver;
 import org.apache.qpid.proton.Proton;
@@ -33,7 +36,8 @@ import java.io.ByteArrayOutputStream;
 public class ProtonReceiverImpl extends ProtonLinkImpl<ProtonReceiver> implements ProtonReceiver {
   private ProtonMessageHandler handler;
   private int prefetch = 1000;
-  private Handler<Void> drainCompleteHandler;
+  private Handler<AsyncResult<Void>> drainCompleteHandler;
+  private Long drainTimeoutTaskId = null;
 
   ProtonReceiverImpl(Receiver receiver) {
     super(receiver);
@@ -53,7 +57,7 @@ public class ProtonReceiverImpl extends ProtonLinkImpl<ProtonReceiver> implement
   }
 
   @Override
-  public ProtonReceiver drain(Handler<Void> completionHandler) {
+  public ProtonReceiver drain(long timeout, Handler<AsyncResult<Void>> completionHandler) {
     if (prefetch > 0) {
       throw new IllegalStateException("Manual credit management not available while prefetch is non-zero");
     }
@@ -70,19 +74,32 @@ public class ProtonReceiverImpl extends ProtonLinkImpl<ProtonReceiver> implement
       // We have no remote credit
       if (getQueued() == 0) {
         // All the deliveries have been processed, drain is a no-op, nothing to do but complete.
-        completionHandler.handle(null);
+        completionHandler.handle(Future.succeededFuture());
       } else {
           // There are still deliveries to process, wait for them to be.
-          drainCompleteHandler = completionHandler;
+          setDrainHandlerAndTimeoutTask(timeout, completionHandler);
       }
     } else {
-      drainCompleteHandler = completionHandler;
+      setDrainHandlerAndTimeoutTask(timeout, completionHandler);
 
       getReceiver().drain(0);
       flushConnection();
     }
 
     return this;
+  }
+
+  private void setDrainHandlerAndTimeoutTask(long delay, Handler<AsyncResult<Void>> completionHandler) {
+    drainCompleteHandler = completionHandler;
+
+    if(delay > 0) {
+      Vertx vertx = Vertx.currentContext().owner();
+      drainTimeoutTaskId = vertx.setTimer(delay, x -> {
+        drainTimeoutTaskId = null;
+        drainCompleteHandler = null;
+        completionHandler.handle(Future.failedFuture("Drain attempt timed out"));
+      });
+    }
   }
 
   @Override
@@ -222,10 +239,24 @@ public class ProtonReceiverImpl extends ProtonLinkImpl<ProtonReceiver> implement
   }
 
   private void processForDrainCompletion() {
-    Handler<Void> h = drainCompleteHandler;
+    Handler<AsyncResult<Void>> h = drainCompleteHandler;
     if(h != null && getCredit() <= 0 && getQueued() <= 0) {
+      boolean timeoutTaskCleared = false;
+
+      Long timerId = drainTimeoutTaskId;
+      if(timerId != null) {
+        Vertx vertx = Vertx.currentContext().owner();
+        timeoutTaskCleared = vertx.cancelTimer(timerId);
+      } else {
+        timeoutTaskCleared = true;
+      }
+
+      drainTimeoutTaskId = null;
       drainCompleteHandler = null;
-      h.handle(null);
+
+      if(timeoutTaskCleared) {
+        h.handle(Future.succeededFuture());
+      }
     }
   }
 }

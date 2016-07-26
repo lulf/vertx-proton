@@ -62,7 +62,7 @@ public class ProtonReceiverImplTest {
     ProtonReceiverImpl receiver = new ProtonReceiverImpl(r);
 
     try {
-      receiver.drain(h-> {});
+      receiver.drain(0, h-> {});
       fail("should have thrown due to prefetch still being enabled");
     } catch (IllegalStateException ise) {
       // Expected
@@ -79,7 +79,7 @@ public class ProtonReceiverImplTest {
 
     receiver.setPrefetch(0);
     try {
-      receiver.drain(null);
+      receiver.drain(0, null);
       fail("should have thrown due to lack of handler");
     } catch (IllegalArgumentException iae) {
       // Expected
@@ -95,12 +95,12 @@ public class ProtonReceiverImplTest {
 
     receiver.setPrefetch(0);
     receiver.flow(1);
-    receiver.drain(h -> {
+    receiver.drain(0, h -> {
       drain1complete.set(true);
     });
 
     try {
-      receiver.drain(h2-> {});
+      receiver.drain(0, h2-> {});
       fail("should have thrown due to outstanding drain operation");
     } catch (IllegalStateException ise) {
       // Expected
@@ -117,7 +117,7 @@ public class ProtonReceiverImplTest {
 
     receiver.setPrefetch(0);
     receiver.flow(1);
-    receiver.drain(h -> {
+    receiver.drain(0, h -> {
       drain1complete.set(true);
     });
 
